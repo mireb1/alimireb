@@ -67,12 +67,17 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
-  /* 3 états d’écran principaux : home / detail / admin */
+
+  // 3 états d’écran principaux : home / detail / admin
   const [screen, setScreen] = useState("home");
   const [produitActif, setProduitActif] = useState(null);
+  const [categorieActive, setCategorieActive] = useState(null);
+  const [showPanier, setShowPanier] = useState(false);
+  const [showCompte, setShowCompte] = useState(false);
 
-  /* produits dynamiques (admin peut modifier) */
+  // produits dynamiques (admin peut modifier)
   const [produits, setProduits] = useState(loadProduits());
+  const [panier, setPanier] = useState([]);
 
   /* authentification naïve, mais suffisante pour la démo */
   const handleLogin = (email, password) => {
@@ -94,7 +99,8 @@ function App() {
     setScreen("home");
   };
 
-  /* persistance localStorage à chaque changement */
+
+  // persistance localStorage à chaque changement
   useEffect(() => saveProduits(produits), [produits]);
 
   /* ------------------------------------------------------------------ */
@@ -107,7 +113,13 @@ function App() {
   if (screen === "detail" && produitActif)
     return <DetailProduit produit={produitActif} onBack={() => setScreen("home")} />;
 
-  /* ------------------------------------------------------------------ */
+  if (showPanier)
+    return <Panier panier={panier} setPanier={setPanier} onBack={() => setShowPanier(false)} produits={produits} />;
+
+  if (showCompte)
+    return <Compte user={user} onLogout={handleLogout} onBack={() => setShowCompte(false)} />;
+
+  // ------------------------------------------------------------------
   return (
     <div className="min-h-screen pb-16">
       {/* ===== HEADER FIXE ===== */}
@@ -131,64 +143,147 @@ function App() {
 
       {/* ===== ESPACE POUR HEADER ===== */}
       <div className="pt-16">
-        {/* Catégories horizontales */}
-        <div className="bg-white py-2 px-3 shadow-sm overflow-x-auto flex space-x-3">
-          <button
-            className="px-3 py-1.5 rounded-full bg-orange-600 text-white text-sm"
-            onClick={() => setScreen("home")}
-          >
-            Tous
-          </button>
-          {CATEGORIES.map(c => (
-            <button key={c} className="px-3 py-1.5 rounded-full bg-gray-200 text-sm">
-              {c}
-            </button>
-          ))}
-        </div>
 
-        {/* Grille 2 colonnes mobile / 4 desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3">
-          {produits.map(p => (
-            <div key={p.id} className="bg-white rounded shadow p-2">
-              <img src={p.images[0]} alt={p.nom} className="w-full h-32 object-cover rounded mb-1"/>
-              <h3 className="font-bold text-sm truncate">{p.nom}</h3>
-              <p className="text-orange-600 font-bold">${p.prix}</p>
-              <button
-                onClick={() => { setProduitActif(p); setScreen("detail"); }}
-                className="w-full mt-1 bg-orange-600 text-white py-1 rounded text-sm"
-              >
-                Voir
-              </button>
-            </div>
-          ))}
-        </div>
+      {/* Catégories horizontales */}
+      <div className="bg-white py-2 px-3 shadow-sm overflow-x-auto flex space-x-3">
+        <button
+          className={`px-3 py-1.5 rounded-full text-sm ${!categorieActive ? 'bg-orange-600 text-white' : 'bg-gray-200'}`}
+          onClick={() => setCategorieActive(null)}
+        >
+          Tous
+        </button>
+        {CATEGORIES.map(c => (
+          <button
+            key={c}
+            className={`px-3 py-1.5 rounded-full text-sm ${categorieActive === c ? 'bg-orange-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setCategorieActive(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* Grille 2 colonnes mobile / 4 desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3">
+        {(categorieActive ? produits.filter(p => p.categorie === categorieActive) : produits).map(p => (
+          <div key={p.id} className="bg-white rounded shadow p-2">
+            <img src={p.images[0]} alt={p.nom} className="w-full h-32 object-cover rounded mb-1"/>
+            <h3 className="font-bold text-sm truncate">{p.nom}</h3>
+            <p className="text-orange-600 font-bold">${p.prix}</p>
+            <button
+              onClick={() => { setProduitActif(p); setScreen("detail"); }}
+              className="w-full mt-1 bg-orange-600 text-white py-1 rounded text-sm"
+            >
+              Voir
+            </button>
+            <button
+              onClick={() => setPanier([...panier, p])}
+              className="w-full mt-1 bg-gray-200 text-orange-600 py-1 rounded text-xs"
+            >
+              Ajouter au panier
+            </button>
+          </div>
+        ))}
+      </div>
       </div>
 
       {/* ===== NAVIGATION DU BAS ===== */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-1.5">
-        <button className="flex flex-col items-center text-orange-600">
+        <button
+          className={`flex flex-col items-center ${!categorieActive ? 'text-orange-600' : 'text-gray-400'}`}
+          onClick={() => { setCategorieActive(null); setShowPanier(false); setShowCompte(false); }}
+        >
           <i className="fas fa-home text-xl"></i>
           <span className="text-xs">Accueil</span>
         </button>
-        <button className="flex flex-col items-center text-gray-400">
+        <button
+          className={`flex flex-col items-center ${categorieActive ? 'text-orange-600' : 'text-gray-400'}`}
+          onClick={() => { setCategorieActive(CATEGORIES[0]); setShowPanier(false); setShowCompte(false); }}
+        >
           <i className="fas fa-th-large text-xl"></i>
           <span className="text-xs">Catégories</span>
         </button>
-        <button className="flex flex-col items-center text-gray-400">
+        <button
+          className={`flex flex-col items-center ${showPanier ? 'text-orange-600' : 'text-gray-400'}`}
+          onClick={() => { setShowPanier(true); setShowCompte(false); }}
+        >
           <i className="fas fa-shopping-cart text-xl"></i>
-          <span className="text-xs">Panier</span>
+          <span className="text-xs">Panier ({panier.length})</span>
         </button>
-        <button className="flex flex-col items-center text-gray-400">
+        <button
+          className={`flex flex-col items-center ${showCompte ? 'text-orange-600' : 'text-gray-400'}`}
+          onClick={() => { setShowCompte(true); setShowPanier(false); }}
+        >
           <i className="fas fa-user text-xl"></i>
           <span className="text-xs">Compte</span>
         </button>
-      </nav>
 
+      </nav>
       {/* WhatsApp flottant */}
       <a href="https://wa.me/243842267252" target="_blank"
          className="fixed bottom-20 right-4 bg-green-500 text-white p-3 rounded-full shadow-lg z-50">
         <i className="fab fa-whatsapp text-2xl"></i>
       </a>
+    </div>
+  );
+}
+
+// Panier et Compte (simples)
+function Panier({ panier, setPanier, onBack, produits }) {
+  const total = panier.reduce((sum, p) => sum + p.prix, 0);
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="bg-orange-600 text-white p-3 flex items-center">
+        <button onClick={onBack} className="mr-3">
+          <i className="fas fa-arrow-left text-xl"></i>
+        </button>
+        <h1 className="text-lg font-bold">Mon panier</h1>
+      </header>
+      <div className="p-4">
+        {panier.length === 0 ? (
+          <p className="text-gray-500">Votre panier est vide.</p>
+        ) : (
+          <>
+            <ul className="divide-y">
+              {panier.map((p, i) => (
+                <li key={i} className="py-2 flex items-center">
+                  <img src={p.images[0]} alt={p.nom} className="w-12 h-12 object-cover rounded mr-2"/>
+                  <div className="flex-1">
+                    <div className="font-bold">{p.nom}</div>
+                    <div className="text-orange-600">${p.prix}</div>
+                  </div>
+                  <button onClick={() => setPanier(panier.filter((_, idx) => idx !== i))} className="text-red-500 ml-2">Retirer</button>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 font-bold">Total : ${total}</div>
+            <button className="mt-4 w-full bg-orange-600 text-white py-2 rounded">Commander</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Compte({ user, onLogout, onBack }) {
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="bg-orange-600 text-white p-3 flex items-center">
+        <button onClick={onBack} className="mr-3">
+          <i className="fas fa-arrow-left text-xl"></i>
+        </button>
+        <h1 className="text-lg font-bold">Mon compte</h1>
+      </header>
+      <div className="p-4">
+        {user ? (
+          <>
+            <div className="mb-2">Connecté en tant que <b>{user.name}</b></div>
+            <button onClick={onLogout} className="bg-red-600 text-white px-4 py-2 rounded">Déconnexion</button>
+          </>
+        ) : (
+          <div className="text-gray-500">Vous n'êtes pas connecté.</div>
+        )}
+      </div>
     </div>
   );
 }

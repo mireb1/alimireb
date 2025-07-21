@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mireb Commercial</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* =========================================================
+   1.  DONNÉES  (simulation, sera bientôt remplacée par API)
+   ========================================================= */
+const CATEGORIES = [
+  "Électronique", "Mode", "Maison & Jardin", "Automobile",
+  "Santé & Beauté", "Sports & Loisirs", "Industrie & BTP"
+];
+
+const PRODUITS_BASE = [
+  {
+    id: 1,
+    nom: "Smartphone Samsung",
+    prix: 299,
+    images: [
+      "https://via.placeholder.com/600x400?text=Sams1",
+      "https://via.placeholder.com/600x400?text=Sams2"
+    ],
+    categorie: "Électronique",
+    stock: 15,
+    description: "<p>Smartphone <b>Samsung Galaxy A24</b> avec écran 6,5\".</p>"
+  },
+  {
+    id: 2,
+    nom: "Robe Africaine",
+    prix: 45,
+    images: ["https://via.placeholder.com/600x400?text=Robe"],
+    categorie: "Mode",
+    stock: 30,
+    description: "<p>Robe wax 100 % coton, taille unique.</p>"
+  }
+];
+
+/* =========================================================
+   2.  UTILITAIRES
+   ========================================================= */
+const storageKey = "mirebProduits";
+function loadProduits() {
+  return JSON.parse(localStorage.getItem(storageKey)) || PRODUITS_BASE;
+}
+function saveProduits(list) {
+  localStorage.setItem(storageKey, JSON.stringify(list));
+}
+
+/* =========================================================
+   3.  APP PRINCIPALE
+   ========================================================= */
+function App() {
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  /* 3 états d’écran principaux : home / detail / admin */
+  const [screen, setScreen] = useState("home");
+  const [produitActif, setProduitActif] = useState(null);
+
+  /* produits dynamiques (admin peut modifier) */
+  const [produits, setProduits] = useState(loadProduits());
+
+  /* authentification naïve, mais suffisante pour la démo */
+  const handleLogin = (email, password) => {
+    if (email === "mirebshop@gmail.com" && password === "Fiacre-19") {
+      setUser({ email, name: "Admin" });
+      setIsAdmin(true);
+      setShowLogin(false);
+      setScreen("admin");
+    } else if (email && password) {
+      setUser({ email, name: email.split("@")[0] });
+      setIsAdmin(false);
+      setShowLogin(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setIsAdmin(false);
+    setScreen("home");
+  };
+
+  /* persistance localStorage à chaque changement */
+  useEffect(() => saveProduits(produits), [produits]);
+
+  /* ------------------------------------------------------------------ */
+  if (showLogin)
+    return <LoginPage onLogin={handleLogin} onClose={() => setShowLogin(false)} />;
+
+  if (screen === "admin")
+    return <AdminInterface produits={produits} setProduits={setProduits} onLogout={handleLogout} />;
+
+  if (screen === "detail" && produitActif)
+    return <DetailProduit produit={produitActif} onBack={() => setScreen("home")} />;
+
+  /* ------------------------------------------------------------------ */
+  return (
+    <div className="min-h-screen pb-16">
+      {/* ===== HEADER FIXE ===== */}
+      <header className="bg-orange-600 text-white p-3 fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <h1 className="text-xl font-bold">Mireb</h1>
+          <div className="flex-1 relative">
+            <i className="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              className="w-full pl-10 pr-3 py-2 rounded-full text-gray-800 text-sm"
+              onChange={(e) => {/* filtrage simple à implémenter */}}
+            />
+          </div>
+          <button onClick={() => setShowLogin(true)} className="text-xl">
+            <i className="fas fa-user-circle"></i>
+          </button>
+        </div>
+      </header>
+
+      {/* ===== ESPACE POUR HEADER ===== */}
+      <div className="pt-16">
+        {/* Catégories horizontales */}
+        <div className="bg-white py-2 px-3 shadow-sm overflow-x-auto flex space-x-3">
+          <button
+            className="px-3 py-1.5 rounded-full bg-orange-600 text-white text-sm"
+            onClick={() => setScreen("home")}
+          >
+            Tous
+          </button>
+          {CATEGORIES.map(c => (
+            <button key={c} className="px-3 py-1.5 rounded-full bg-gray-200 text-sm">
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {/* Grille 2 colonnes mobile / 4 desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3">
+          {produits.map(p => (
+            <div key={p.id} className="bg-white rounded shadow p-2">
+              <img src={p.images[0]} alt={p.nom} className="w-full h-32 object-cover rounded mb-1"/>
+              <h3 className="font-bold text-sm truncate">{p.nom}</h3>
+              <p className="text-orange-600 font-bold">${p.prix}</p>
+              <button
+                onClick={() => { setProduitActif(p); setScreen("detail"); }}
+                className="w-full mt-1 bg-orange-600 text-white py-1 rounded text-sm"
+              >
+                Voir
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ===== NAVIGATION DU BAS ===== */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-1.5">
+        <button className="flex flex-col items-center text-orange-600">
+          <i className="fas fa-home text-xl"></i>
+          <span className="text-xs">Accueil</span>
+        </button>
+        <button className="flex flex-col items-center text-gray-400">
+          <i className="fas fa-th-large text-xl"></i>
+          <span className="text-xs">Catégories</span>
+        </button>
+        <button className="flex flex-col items-center text-gray-400">
+          <i className="fas fa-shopping-cart text-xl"></i>
+          <span className="text-xs">Panier</span>
+        </button>
+        <button className="flex flex-col items-center text-gray-400">
+          <i className="fas fa-user text-xl"></i>
+          <span className="text-xs">Compte</span>
+        </button>
+      </nav>
+
+      {/* WhatsApp flottant */}
+      <a href="https://wa.me/243842267252" target="_blank"
+         className="fixed bottom-20 right-4 bg-green-500 text-white p-3 rounded-full shadow-lg z-50">
+        <i className="fab fa-whatsapp text-2xl"></i>
+      </a>
+    </div>
+  );
+}
+
+/* =========================================================
+   4.  LOGIN (modal ultra-simple)
+   ========================================================= */
+function LoginPage({ onLogin, onClose }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-5 rounded w-80">
+        <h2 className="text-lg font-bold mb-3">Connexion</h2>
+        <input type="email" placeholder="Email" className="w-full mb-2 border px-2 py-1.5 rounded"
+          value={email} onChange={e => setEmail(e.target.value)} />
+        <input type="password" placeholder="Mot de passe" className="w-full mb-3 border px-2 py-1.5 rounded"
+          value={password} onChange={e => setPassword(e.target.value)} />
+        <button
+          onClick={() => onLogin(email, password)}
+          className="w-full bg-orange-600 text-white py-2 rounded mb-2"
+        >
+          Se connecter
+        </button>
+        <button onClick={onClose} className="text-sm text-gray-500">Annuler</button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   5.  DETAIL PRODUIT + FORMULAIRE LEAD
+   ========================================================= */
+function DetailProduit({ produit, onBack }) {
+  const [currentImg, setCurrentImg] = useState(0);
+  const [form, setForm] = useState({ nom: "", tel: "", message: "" });
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    /* Ici vous enverriez les données à votre API ou WhatsApp */
+    console.log("NOUVEAU LEAD :", { produit: produit.nom, ...form });
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Flèche retour */}
+      <header className="bg-orange-600 text-white p-3 flex items-center">
+        <button onClick={onBack} className="mr-3">
+          <i className="fas fa-arrow-left text-xl"></i>
+        </button>
+        <h1 className="text-lg font-bold truncate">{produit.nom}</h1>
+      </header>
+
+      {/* Galerie photo */}
+      <div className="relative">
+        <img src={produit.images[currentImg]} alt={produit.nom} className="w-full h-64 object-cover"/>
+        {produit.images.length > 1 && (
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-2">
+            {produit.images.map((_, idx) => (
+              <button
+                key={idx}
+                className={`w-2.5 h-2.5 rounded-full ${idx === currentImg ? 'bg-white' : 'bg-white bg-opacity-50'}`}
+                onClick={() => setCurrentImg(idx)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Infos */}
+      <div className="p-4">
+        <h2 className="text-2xl font-bold text-orange-600">${produit.prix}</h2>
+        <p className="text-sm text-gray-500 mb-2">Stock : {produit.stock}</p>
+        <div className="mb-4 prose prose-sm" dangerouslySetInnerHTML={{ __html: produit.description }}/>
+
+        {/* Formulaire de lead */}
+        <h3 className="font-bold mb-2">Intéressé ? Contactez-nous</h3>
+        {sent && <p className="text-green-600 mb-2">Demande envoyée !</p>}
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input type="text" placeholder="Votre nom"
+            required className="w-full border rounded px-3 py-2"
+            value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} />
+          <input type="tel" placeholder="Numéro WhatsApp"
+            required className="w-full border rounded px-3 py-2"
+            value={form.tel} onChange={e => setForm({...form, tel: e.target.value})} />
+          <textarea placeholder="Mon message..."
+            rows="3" className="w-full border rounded px-3 py-2"
+            value={form.message} onChange={e => setForm({...form, message: e.target.value})} />
+          <button type="submit" className="w-full bg-orange-600 text-white py-2 rounded">
+            Envoyer
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   6.  ADMIN
+   ========================================================= */
+function AdminInterface({ produits, setProduits, onLogout }) {
+  const [nom, setNom] = useState("");
+  const [prix, setPrix] = useState("");
+  const [stock, setStock] = useState("");
+  const [categorie, setCategorie] = useState(CATEGORIES[0]);
+  const [images, setImages] = useState("");
+  const [description, setDescription] = useState("");
+
+  const handleAdd = () => {
+    const newP = {
+      id: Date.now(),
+      nom,
+      prix: Number(prix),
+      stock: Number(stock),
+      categorie,
+      images: images.split(",").map(i => i.trim()).filter(i => i) || ["https://via.placeholder.com/600x400?text=No+Image"],
+      description
+    };
+    setProduits([...produits, newP]);
+    /* reset */
+    setNom(""); setPrix(""); setStock(""); setImages(""); setDescription("");
+  };
+
+  const handleDelete = id => setProduits(produits.filter(p => p.id !== id));
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-red-600 text-white p-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold">Admin Mireb</h1>
+        <button onClick={onLogout} className="bg-white text-red-600 px-3 py-1 rounded">Déconnexion</button>
+      </header>
+
+      <div className="p-4 grid gap-6">
+        {/* Ajouter produit */}
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-lg font-bold mb-3">Ajouter / Modifier produit</h2>
+          <div className="grid md:grid-cols-2 gap-3 text-sm">
+            <input placeholder="Nom du produit" value={nom} onChange={e => setNom(e.target.value)} className="border px-2 py-1 rounded"/>
+            <input type="number" placeholder="Prix" value={prix} onChange={e => setPrix(e.target.value)} className="border px-2 py-1 rounded"/>
+            <input type="number" placeholder="Stock" value={stock} onChange={e => setStock(e.target.value)} className="border px-2 py-1 rounded"/>
+            <select value={categorie} onChange={e => setCategorie(e.target.value)} className="border px-2 py-1 rounded">
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+            <textarea placeholder="URLs images (séparées par virgule)" value={images} onChange={e => setImages(e.target.value)} className="border px-2 py-1 rounded md:col-span-2" rows="2"/>
+            <textarea placeholder="Description (HTML autorisé)" value={description} onChange={e => setDescription(e.target.value)} className="border px-2 py-1 rounded md:col-span-2" rows="3"/>
+          </div>
+          <button onClick={handleAdd} className="mt-3 bg-orange-600 text-white px-4 py-1 rounded">Ajouter</button>
+        </div>
+
+        {/* Liste */}
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-lg font-bold mb-3">Produits existants</h2>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b"><th>Nom</th><th>Prix</th><th>Stock</th><th></th></tr></thead>
+              <tbody>
+                {produits.map(p => (
+                  <tr key={p.id} className="border-b">
+                    <td className="p-1">{p.nom}</td>
+                    <td className="p-1">{p.prix}</td>
+                    <td className="p-1">{p.stock}</td>
+                    <td className="p-1">
+                      <button onClick={() => handleDelete(p.id)} className="bg-red-500 text-white px-2 py-0.5 rounded">Suppr</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   7.  RENDU
+   ========================================================= */
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
